@@ -33,7 +33,7 @@ const OrderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ['card', 'cod', 'bank'],
+      enum: ['card', 'cod', 'bank', 'manual'],
       default: 'cod'
     },
     paymentStatus: {
@@ -43,7 +43,7 @@ const OrderSchema = new mongoose.Schema(
     },
     orderStatus: {
       type: String,
-      enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+      enum: ['pending', 'pending_verification', 'processing', 'shipped', 'delivered', 'cancelled'],
       default: 'pending'
     },
     subtotal: {
@@ -75,6 +75,20 @@ const OrderSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true
+    },
+    manualPaymentDetails: {
+      transactionId: {
+        type: String,
+        default: null
+      },
+      senderMobile: {
+        type: String,
+        default: null
+      },
+      paymentMethod: {
+        type: String,
+        default: null
+      }
     }
   },
   { timestamps: true }

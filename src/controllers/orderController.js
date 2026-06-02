@@ -40,7 +40,7 @@ exports.createOrder = async (req, res, next) => {
         return res.status(400).json({ success: false, message: `Insufficient stock for product ${product.name}. Available: ${product.stock}` });
       }
 
-      const activePrice = product.discountPrice !== null ? product.discountPrice : product.price;
+      const activePrice = product.discountPrice != null ? product.discountPrice : product.price;
       subtotal += activePrice * item.quantity;
 
       processedItems.push({
@@ -78,14 +78,15 @@ exports.createOrder = async (req, res, next) => {
       billingAddress: billingAddress || shippingAddress,
       paymentMethod,
       paymentStatus: paymentMethod === 'card' ? 'paid' : 'pending',
-      orderStatus: 'pending',
+      orderStatus: paymentMethod === 'manual' ? 'pending_verification' : 'pending',
       subtotal,
       shippingCost,
       discount,
       total,
       couponCode: couponCode || null,
       invoiceNumber,
-      trackingId
+      trackingId,
+      manualPaymentDetails: paymentMethod === 'manual' ? req.body.manualPaymentDetails : undefined
     });
 
     for (let item of processedItems) {

@@ -94,10 +94,21 @@ const seedDB = async () => {
 
     // Map names to ObjectIds for products seeding
     const catMap = {};
-    categories.forEach(c => { catMap[c.slug] = c._id; });
+    categories.forEach(c => {
+      if (c.name.toLowerCase().includes('fully synthetic')) catMap['fully-synthetic'] = c._id;
+      if (c.name.toLowerCase().includes('semi synthetic')) catMap['semi-synthetic'] = c._id;
+      if (c.name.toLowerCase().includes('mineral')) catMap['mineral-oil'] = c._id;
+      if (c.name.toLowerCase().includes('coolant')) catMap['coolants'] = c._id;
+      if (c.name.toLowerCase().includes('additive')) catMap['additives'] = c._id;
+    });
 
     const brandMap = {};
-    brands.forEach(b => { brandMap[b.slug] = b._id; });
+    brands.forEach(b => {
+      if (b.name.toLowerCase().includes('one')) brandMap['aone-pro'] = b._id;
+      if (b.name.toLowerCase().includes('mobil')) brandMap['mobil-1'] = b._id;
+      if (b.name.toLowerCase().includes('motul')) brandMap['motul'] = b._id;
+      if (b.name.toLowerCase().includes('castrol')) brandMap['castrol'] = b._id;
+    });
 
     console.log('\n🛍️  Seeding product catalog...');
     const products = await Product.create([
