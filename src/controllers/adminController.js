@@ -2,6 +2,8 @@ const User = require('../models/User');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 
+const activeOrLegacy = { $or: [{ active: true }, { active: { $exists: false } }] };
+
 // @desc    Get dashboard metrics (Total Sales, Orders, Customers, Stock warnings, and Investments)
 // @route   GET /api/admin/stats
 // @access  Private (Admin/Employee only)
@@ -18,9 +20,9 @@ exports.getStats = async (req, res, next) => {
     totalRevenue = completedOrders.reduce((sum, order) => sum + order.total, 0);
 
     totalOrders = await Order.countDocuments();
-    totalProducts = await Product.countDocuments({ active: true });
+    totalProducts = await Product.countDocuments(activeOrLegacy);
     totalCustomers = await User.countDocuments({ role: 'customer' });
-    lowStockCount = await Product.countDocuments({ stock: { $lt: 10 }, active: true });
+    lowStockCount = await Product.countDocuments({ stock: { $lt: 10 }, ...activeOrLegacy });
 
     const users = await User.find();
     totalInvestments = users.reduce((sum, usr) => sum + (usr.investmentAmount || 0), 0);
@@ -50,7 +52,7 @@ exports.getCharts = async (req, res, next) => {
     let productsList = [];
 
     ordersList = await Order.find().populate('items.product');
-    productsList = await Product.find({ active: true }).populate('category');
+    productsList = await Product.find(activeOrLegacy).populate('category');
 
     // 1. Monthly Revenue Analytics (Last 6 Months)
     const monthlyRevMap = {};

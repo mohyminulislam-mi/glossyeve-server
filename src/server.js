@@ -58,6 +58,10 @@ const startServer = async () => {
   });
 };
 
-startServer().catch(() => {
-  process.exit(1);
-});
+if (require.main === module) {
+  startServer().catch(() => {
+    process.exit(1);
+  });
+}
+
+module.exports = app;

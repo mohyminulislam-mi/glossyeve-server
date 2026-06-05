@@ -2,6 +2,8 @@ const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Brand = require('../models/Brand');
 
+const activeOrLegacy = { $or: [{ active: true }, { active: { $exists: false } }] };
+
 // @desc    Get all products (with search, filter, sort, paginate)
 // @route   GET /api/products
 // @access  Public
@@ -9,13 +11,17 @@ exports.getProducts = async (req, res, next) => {
   try {
     const { search, category, brand, minPrice, maxPrice, sort, page, limit } = req.query;
 
-    const queryObj = { active: true };
+    const queryObj = { ...activeOrLegacy };
 
     if (search) {
-      queryObj.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { sku: { $regex: search, $options: 'i' } }
+      queryObj.$and = [
+        {
+          $or: [
+            { name: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } },
+            { sku: { $regex: search, $options: 'i' } }
+          ]
+        }
       ];
     }
 
@@ -39,7 +45,7 @@ exports.getProducts = async (req, res, next) => {
     const limitNum = parseInt(limit) || 12;
     const skipNum = (pageNum - 1) * limitNum;
 
-    let mongooseQuery = Product.find(queryObj).populate('category').populate('brand');
+    let mongooseQuery = Product.find(queryObj).populate('category').populate('brand').lean();
 
     if (sort) {
       if (sort === 'priceAsc') mongooseQuery = mongooseQuery.sort('price');
@@ -60,7 +66,7 @@ exports.getProducts = async (req, res, next) => {
       total,
       page: pageNum,
       pages: Math.ceil(total / limitNum),
-      products
+      products: products.map(normalizeProduct)
     });
   } catch (err) {
     next(err);
@@ -76,16 +82,16 @@ exports.getProduct = async (req, res, next) => {
     let product;
 
     if (id_or_slug.match(/^[0-9a-fA-F]{24}$/)) {
-      product = await Product.findById(id_or_slug).populate('category').populate('brand');
+      product = await Product.findById(id_or_slug).populate('category').populate('brand').lean();
     } else {
-      product = await Product.findOne({ slug: id_or_slug }).populate('category').populate('brand');
+      product = await Product.findOne({ slug: id_or_slug }).populate('category').populate('brand').lean();
     }
 
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    return res.status(200).json({ success: true, product });
+    return res.status(200).json({ success: true, product: normalizeProduct(product) });
   } catch (err) {
     next(err);
   }
@@ -143,7 +149,7 @@ exports.deleteProduct = async (req, res, next) => {
 // @access  Public
 exports.getCategories = async (req, res, next) => {
   try {
-    const categories = await Category.find({ active: true });
+    const categories = await Category.find(activeOrLegacy).lean();
     return res.status(200).json({ success: true, categories });
   } catch (err) {
     next(err);
@@ -160,4 +166,18 @@ exports.getBrands = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+const normalizeProduct = (product) => {
+  if (!product) return product;
+
+  return {
+    ...product,
+    images: product.images && product.images.length ? product.images : product.image_url ? [product.image_url] : [],
+    discountPrice: product.discountPrice ?? product.compare_at_price ?? null,
+    specifications: Array.isArray(product.specifications)
+      ? product.specifications
+      : Object.entries(product.specs || {}).map(([key, value]) => ({ key, value: String(value) })),
+    active: product.active !== false
+  };
 };
