@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 
+router.get("/test-bypass", (req, res) => {
+  return res.send("Express routing is working perfectly!");
+});
+
 const {
   getCart,
   addItem,
@@ -9,7 +13,7 @@ const {
   clearCart,
 } = require("../controllers/cartController");
 
-const { protect } = require("../middleware/auth");
+const { protect } = require("../middleware/authMiddleware");
 
 router.use(protect);
 
