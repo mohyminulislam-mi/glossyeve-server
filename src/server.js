@@ -36,11 +36,13 @@ app.use("/api/products", require("./routes/productRoutes"));
 app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/reviews", require("./routes/reviewRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
-app.use("/api/cart", require("./routes/cartRoutes"));
 
 // Root Index route
 app.get("/", (req, res) => {
-  res.send("Hey Mohyminul How are you brother?");
+  res.status(200).json({
+    success: true,
+    message: "A One Lub REST API Service",
+  });
 });
 
 // Express global exception interceptor

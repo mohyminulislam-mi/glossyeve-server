@@ -22,7 +22,7 @@ exports.createOrder = async (req, res, next) => {
     const { items, shippingAddress, billingAddress, paymentMethod, couponCode } = req.body;
 
     if (!items || items.length === 0) {
-      return res.status(400).json({ success: false, message: 'No items in the order cart' });
+      return res.status(400).json({ success: false, message: 'No items in the order' });
     }
 
     let subtotal = 0;
