@@ -6,44 +6,53 @@ Base URL:
 http://localhost:5000
 ```
 
-Production/Vercel URL thakle same path use hobe, example: `https://your-domain.com/api/products`.
+Production/Vercel URL দিলে একই path ব্যবহার করুন, উদাহরণ: `https://your-domain.com/api/products`।
 
-## Auth Rules
+---
 
-Private API call korte login/register response-er JWT token lagbe.
+## সারাংশ (Auth / Roles / Token পাঠানোর পদ্ধতি)
 
-Token dui vabe pathano jay:
+Private API কল করতে login/register response-এর JWT token প্রয়োজন। Token পাঠানোর দুটি বৈধ উপায়:
 
-```txt
-Cookie: token=<jwt>
-```
-
-or
-
-```txt
-Authorization: Bearer <jwt>
-```
+- Cookie: `Cookie: token=<jwt>`
+- Authorization header: `Authorization: Bearer <jwt>`
 
 Roles:
 
-- `customer`: normal user
-- `employee`: product/order/admin dashboard access
-- `admin`: full access including user role update
+- `customer` — সাধারণ ক্রেতা
+- `employee` — প্রোডাক্ট/অর্ডার/ড্যাশবোর্ড ব্যবস্থাপনা
+- `admin` — সম্পূর্ণ অ্যাক্সেস (ইউজার রোল পরিবর্তন সহ)
+
+নোট: প্রোডাকশন-এ `process.env.JWT_SECRET` অবশ্যই সেট থাকতে হবে; লোকাল ডিফল্ট সিক্রেট ব্যবহার না করা উচিত।
+
+---
 
 ## Health
 
-| Method | API | Access | Kaj |
-| --- | --- | --- | --- |
-| `GET` | `/api/health` | Public | Server and DB status check |
-| `GET` | `/` | Public | Root test message |
+1. ✅ Server Health
+
+URL: `/api/health`
+Method: GET
+Access: Public
+Description: সার্ভার এবং ডাটাবেস সংযোগ স্ট্যাটাস চেক করে।
+
+2. ✅ Root
+
+URL: `/`
+Method: GET
+Access: Public
+Description: সহজ টেস্ট রেসপন্স (API চালু আছে কি না)।
+
+---
 
 ## Auth APIs
 
-### Register
+1. 📝 Register (POST)
 
-`POST /api/auth/register`
-
-New customer account create kore and token return kore.
+URL: `/api/auth/register`
+Method: POST
+Access: Public
+Description: নতুন কাস্টমার অ্যাকাউন্ট তৈরি করে এবং JWT token রিটার্ন করে।
 
 Body:
 
@@ -58,11 +67,14 @@ Body:
 
 Response: `success`, `token`, `user`
 
-### Login
+Notes: email unique; password validation কন্ট্রোলার-এ আছে।
 
-`POST /api/auth/login`
+2. 🔐 Login (POST)
 
-Email/password diye login kore token return kore.
+URL: `/api/auth/login`
+Method: POST
+Access: Public
+Description: Email ও password দিয়ে লগইন করে JWT token রিটার্ন করে।
 
 Body:
 
@@ -75,11 +87,12 @@ Body:
 
 Response: `success`, `token`, `user`
 
-### Google Login
+3. 🌐 Google Login (POST)
 
-`POST /api/auth/google-login`
-
-Google/Firebase login simulation. Email diye user khuje, na thakle create kore.
+URL: `/api/auth/google-login`
+Method: POST
+Access: Public
+Description: Google/Firebase লগইন সিমুলেশন — email দিয়ে ইউজার খোঁজে, না থাকলে তৈরি করে।
 
 Body:
 
@@ -92,94 +105,105 @@ Body:
 }
 ```
 
-### Logout
+4. 🚪 Logout (POST)
 
-`POST /api/auth/logout`
+URL: `/api/auth/logout`
+Method: POST
+Access: Public (cookie clear)
+Description: HTTP-only cookie থেকে token সরিয়ে দেয় (logout)।
 
-Cookie token clear kore.
+5. 🔁 Forgot Password (POST)
 
-### Forgot Password
-
-`POST /api/auth/forgot-password`
-
-Password reset request simulation.
-
+URL: `/api/auth/forgot-password`
+Method: POST
+Access: Public
 Body:
 
 ```json
-{
-  "email": "customer@example.com"
-}
+{ "email": "customer@example.com" }
 ```
 
-### Current User
+Description: পাসওয়ার্ড রিসেট রিকোয়েস্ট সিমুলেশন। (আপনি কন্ট্রোলার-এ যে লজিক দিয়েছেন সেটাই চলবে)
 
-`GET /api/auth/me`
+6. 👤 Current User (GET)
 
-Private. Logged-in user profile return kore.
+URL: `/api/auth/me`
+Method: GET
+Access: Private (Require token)
+Description: লগইন করা ইউজারের প্রোফাইল রিটার্ন করে।
+
+---
 
 ## Product APIs
 
-### Get Products
+General notes:
+- GET `/api/products` এ query validation ও sanitization যোগ করা হয়েছে (search regex escape, numeric parse, page/limit cap, allowed sort values) — invalid params হলে সার্ভার 400 রিটার্ন করতে পারে。
+- Create/Update product body-এর জন্য সার্ভারে basic validation আছে (name, sku, numeric fields ইত্যাদি)。
+- Delete product soft-delete: `active: false` সেট করে; ডাটাবেস থেকে permanent remove করে না।
 
-`GET /api/products`
+1. 🧾 Get Products (GET)
 
-Public. Product list, search, filter, sort, pagination.
+URL: `/api/products`
+Method: GET
+Access: Public
+Description: Product তালিকা; search, filter, sort ও pagination সমর্থন করে।
 
 Query params:
 
-| Param | Example | Kaj |
+| Param | Example | Description |
 | --- | --- | --- |
-| `search` | `engine` | name/description/sku search |
-| `category` | `engine-oil` | category slug or id filter |
-| `brand` | `a-one` | brand slug or id filter |
-| `minPrice` | `100` | minimum price |
-| `maxPrice` | `1000` | maximum price |
-| `sort` | `priceAsc` | sort option |
-| `page` | `1` | page number |
-| `limit` | `12` | per page count |
-
-Sort values:
-
-```txt
-priceAsc, priceDesc, nameAsc, nameDesc, ratingDesc
-```
+| `search` | `engine` | name/description/sku অনুসারে অনুসন্ধান (safe-escaped regex) |
+| `category` | `engine-oil` | category slug বা id ব্যবহার করে filter |
+| `brand` | `a-one` | brand slug বা id filter |
+| `minPrice` | `100` | minimum price (non-negative number) |
+| `maxPrice` | `1000` | maximum price (non-negative number) |
+| `sort` | `priceAsc` | supported: `priceAsc, priceDesc, nameAsc, nameDesc, ratingDesc` |
+| `page` | `1` | page number (default 1) |
+| `limit` | `12` | per-page count (default 12, max 100)
 
 Example:
 
-```txt
+```
 GET /api/products?search=oil&category=engine-oil&sort=priceAsc&page=1&limit=12
 ```
 
-### Get Product Details
+Response: JSON with `success`, `count`, `total`, `page`, `pages`, `products` (normalized objects)
 
-`GET /api/products/:id_or_slug`
+Notes:
+- Search string-এর জন্য special RegExp character ইস্কেপ করা হয়, ReDoS ঝুঁকি কমানো হয়েছে。
+- বড় dataset-এ performance নিশ্চিত করতে index এবং full-text options পরামর্শযোগ্য।
 
-Public. Product ID or slug diye single product details.
+2. 🔍 Get Product Details (GET)
+
+URL: `/api/products/:id_or_slug`
+Method: GET
+Access: Public
+Description: Product ID (24-hex ObjectId) অথবা slug দিয়ে একক প্রোডাক্টের বিস্তারিত রিটার্ন করে।
 
 Example:
 
-```txt
+```
 GET /api/products/engine-oil-20w50
 GET /api/products/665fabc12345678901234567
 ```
 
-### Create Product
+Response: `success`, `product` (normalized)
 
-`POST /api/products`
+3. ➕ Create Product (POST)
 
-Private. Only `admin` or `employee`.
+URL: `/api/products`
+Method: POST
+Access: Private (roles: `admin`, `employee`)
+Description: নতুন প্রোডাক্ট তৈরি করে।
 
-Body:
+Body (example):
 
 ```json
 {
   "name": "Engine Oil 20W50",
   "sku": "EO-20W50-1L",
   "description": "Premium engine oil",
-  "specifications": [
-    { "key": "Viscosity", "value": "20W50" }
-  ],
+  "specifications": [{ "key": "Viscosity", "value": "20W50" }],
   "benefits": ["Smooth engine", "Long life"],
   "category": "categoryObjectId",
   "brand": "brandObjectId",
@@ -190,250 +214,201 @@ Body:
 }
 ```
 
-### Update Product
+Validation: name & sku required; price/discountPrice/stock must be non-negative numbers; images must be array if provided.
 
-`PUT /api/products/:id`
+Response: `201` with `success` and created `product` (populated category & brand)
 
-Private. Only `admin` or `employee`. Product-er any field update.
+4. ✏️ Update Product (PUT)
 
-### Delete Product
+URL: `/api/products/:id`
+Method: PUT
+Access: Private (roles: `admin`, `employee`)
+Description: পণ্য-টিকে আপডেট করে। Partial update সমর্থিত; পাঠানো ফিল্ডগুলো মেরামত হবে।
 
-`DELETE /api/products/:id`
+Validation: numeric fields validated; images must be array if provided.
 
-Private. Only `admin` or `employee`. Actually soft delete kore: `active: false`.
+Response: `200` with updated `product`
 
-### Get Categories
+5. 🗑️ Delete Product (DELETE)
 
-`GET /api/products/categories`
+URL: `/api/products/:id`
+Method: DELETE
+Access: Private (roles: `admin`, `employee`)
+Description: soft-delete করে (`active: false`), permanent remove করে না।
 
-Public. Active categories list.
+Response: `200` with success message
 
-### Get Brands
+6. 🗂️ Get Categories (GET)
 
-`GET /api/products/brands`
+URL: `/api/products/categories`
+Method: GET
+Access: Public
+Description: active বা legacy (active field অনুপস্থিত) ক্যাটেগরি তালিকা দেয়।
 
-Public. Active brands list.
+7. 🏷️ Get Brands (GET)
+
+URL: `/api/products/brands`
+Method: GET
+Access: Public
+Description: active brands এর তালিকা রিটার্ন করে।
+
+---
 
 ## Order APIs
 
-Order APIs private. Token required.
+নোট: Order রুটগুলো প্রোটেক্টেড — `router.use(protect)` করা আছে।
 
-### Create Order
+1. 🛒 Create Order (POST)
 
-`POST /api/orders`
+URL: `/api/orders`
+Method: POST
+Access: Private (logged-in customer)
+Description: অর্ডার তৈরি করে; প্রোডাক্ট স্টক যাচাই করে, subtotal/total হিসাব করে এবং স্টক আপডেট করে (কন্ট্রোলারের লজিক অনুযায়ী)।
 
-Customer order create kore. Product stock check kore, subtotal/total calculate kore, stock decrease kore.
-
-Body:
+Body (example):
 
 ```json
 {
-  "items": [
-    {
-      "product": "productObjectId",
-      "quantity": 2
-    }
-  ],
-  "shippingAddress": {
-    "street": "House 1, Road 2",
-    "city": "Dhaka",
-    "postalCode": "1207",
-    "country": "Bangladesh"
-  },
-  "billingAddress": {
-    "street": "House 1, Road 2",
-    "city": "Dhaka",
-    "postalCode": "1207",
-    "country": "Bangladesh"
-  },
+  "items": [{ "product": "productObjectId", "quantity": 2 }],
+  "shippingAddress": { "street": "House 1", "city": "Dhaka", "postalCode": "1207", "country": "Bangladesh" },
+  "billingAddress": { "street": "House 1", "city": "Dhaka", "postalCode": "1207", "country": "Bangladesh" },
   "paymentMethod": "cod",
   "couponCode": "SAVE10"
 }
 ```
 
-Payment methods:
-
-```txt
-card, cod, bank, manual
-```
-
-Manual payment body example:
-
-```json
-{
-  "items": [
-    {
-      "product": "productObjectId",
-      "quantity": 1
-    }
-  ],
-  "shippingAddress": {
-    "street": "House 1",
-    "city": "Dhaka",
-    "postalCode": "1207",
-    "country": "Bangladesh"
-  },
-  "paymentMethod": "manual",
-  "manualPaymentDetails": {
-    "transactionId": "TXN123",
-    "senderMobile": "01700000000",
-    "paymentMethod": "bkash"
-  }
-}
-```
+Payment methods: `card`, `cod`, `bank`, `manual`
 
 Notes:
-
-- Shipping cost is `5` if subtotal is `<= 150`
-- Shipping cost is `0` if subtotal is `> 150`
+- Shipping cost: subtotal <= 150 -> 5, else -> 0
 - `card` payment creates `paymentStatus: paid`
-- `manual` payment creates `orderStatus: pending_verification`
+- `manual` payment sets `orderStatus: pending_verification`
 
-### My Orders
+Response: created order object
 
-`GET /api/orders/my-orders`
+2. 📦 My Orders (GET)
 
-Logged-in customer-er own order history.
+URL: `/api/orders/my-orders`
+Method: GET
+Access: Private
+Description: বর্তমান লগইন করা গ্রাহকের অর্ডার ইতিহাস রিটার্ন করে।
 
-### Get Order Details
+3. 🔎 Get Order Details (GET)
 
-`GET /api/orders/:id`
+URL: `/api/orders/:id`
+Method: GET
+Access: Private
+Description: গ্রাহক নিজের অর্ডার দেখবে; admin/employee সব অর্ডার দেখতে পারবে (authorize logic কন্ট্রোলার-এ আছে)।
 
-Customer nijer order dekhte parbe. Admin/employee any order dekhte parbe.
+4. 📚 Get All Orders (GET)
 
-### Get All Orders
+URL: `/api/orders`
+Method: GET
+Access: Private (roles: `admin`, `employee`)
+Description: সকল অর্ডারের তালিকা (ড্যাশবোর্ড ব্যবহারের জন্য)।
 
-`GET /api/orders`
+5. 🔄 Update Order Status (PUT)
 
-Private. Only `admin` or `employee`. Sob order list.
-
-### Update Order Status
-
-`PUT /api/orders/:id/status`
-
-Private. Only `admin` or `employee`.
-
-Body:
+URL: `/api/orders/:id/status`
+Method: PUT
+Access: Private (roles: `admin`, `employee`)
+Body (example):
 
 ```json
-{
-  "orderStatus": "processing",
-  "paymentStatus": "paid"
-}
+{ "orderStatus": "processing", "paymentStatus": "paid" }
 ```
 
-Order status values:
+Description: অর্ডারের স্ট্যাটাস ও পেমেন্ট স্ট্যাটাস আপডেট করা হয়। Order cancel করলে কন্ট্রোলার অনুযায়ী স্টক ফিরিয়ে দেওয়া হয়।
 
-```txt
-pending, pending_verification, processing, shipped, delivered, cancelled
-```
+Allowed orderStatus values: `pending, pending_verification, processing, shipped, delivered, cancelled`
+Allowed paymentStatus values: `pending, paid, failed`
 
-Payment status values:
-
-```txt
-pending, paid, failed
-```
-
-Note: order cancel korle product stock back add hoy.
+---
 
 ## Review APIs
 
-### Get Product Reviews
+1. 💬 Get Product Reviews (GET)
 
-`GET /api/reviews/product/:productId`
+URL: `/api/reviews/product/:productId`
+Method: GET
+Access: Public
+Description: একটি প্রোডাক্টের সকল রিভিউ তালিকা রিটার্ন করে।
 
-Public. Product-er reviews list.
+2. ✍️ Add Review (POST)
 
-### Add Review
-
-`POST /api/reviews/:productId`
-
-Private. Logged-in user product review add kore. Same user same product-e ekbar review dite parbe.
-
+URL: `/api/reviews/:productId`
+Method: POST
+Access: Private
 Body:
 
 ```json
-{
-  "rating": 5,
-  "comment": "Very good product"
-}
+{ "rating": 5, "comment": "Very good product" }
 ```
 
-Rating range: `1` to `5`
+Description: লগইন করা ইউজার একটি প্রোডাক্টে রিভিউ যোগ করতে পারে; একই ইউজার একই প্রোডাক্টে একবারই রিভিউ দিতে পারবে (কন্ট্রোলারে logic আছে)। Rating 1 থেকে 5
 
-### Delete Review
+3. 🧹 Delete Review (DELETE)
 
-`DELETE /api/reviews/:id`
+URL: `/api/reviews/:id`
+Method: DELETE
+Access: Private
+Description: রিভিউ মালিক বা admin এই রিভিউ মুছে দিতে পারবে।
 
-Private. Review owner or `admin` delete korte parbe.
+---
 
 ## Admin APIs
 
-Admin APIs private.
+1. 📊 Dashboard Stats (GET)
 
-### Dashboard Stats
+URL: `/api/admin/stats`
+Method: GET
+Access: Private (roles: `admin`, `employee`)
+Description: মোট রেভেনিউ (paid orders), মোট অর্ডার, মোট প্রোডাক্ট, মোট গ্রাহক, low stock count, total investments ইত্যাদি রিটার্ন করে।
 
-`GET /api/admin/stats`
+2. 📈 Dashboard Charts (GET)
 
-Only `admin` or `employee`.
+URL: `/api/admin/charts`
+Method: GET
+Access: Private (roles: `admin`, `employee`)
+Description: গত ৬ মাসের রেভেনিউ চার্ট, ক্যাটেগরি অনুযায়ী সেলস চার্ট, অর্ডার স্ট্যাটাস চার্ট রিটার্ন করে।
 
-Returns:
+3. 👥 Get Users (GET)
 
-- total revenue from paid orders
-- total orders
-- total products
-- total customers
-- low stock count
-- total investments
+URL: `/api/admin/users`
+Method: GET
+Access: Private (role: `admin`)
+Description: সকল ইউজার তালিকা রিটার্ন করে।
 
-### Dashboard Charts
+4. 🔧 Update User Role (PUT)
 
-`GET /api/admin/charts`
-
-Only `admin` or `employee`.
-
-Returns:
-
-- last 6 months revenue chart
-- sales by category chart
-- order status chart
-
-### Get Users
-
-`GET /api/admin/users`
-
-Only `admin`. Sob users list.
-
-### Update User Role
-
-`PUT /api/admin/users/:id/role`
-
-Only `admin`. User role and investment amount update.
-
-Body:
+URL: `/api/admin/users/:id/role`
+Method: PUT
+Access: Private (role: `admin`)
+Body (example):
 
 ```json
-{
-  "role": "employee",
-  "investmentAmount": 5000
-}
+{ "role": "employee", "investmentAmount": 5000 }
 ```
 
-Allowed roles:
+Description: ইউজারের role এবং investmentAmount আপডেট করা হয়। Allowed roles: `customer, employee, admin`
 
-```txt
-customer, employee, admin
-```
+---
+
+## Validation এবং নিরাপত্তা নোট
+
+- Product GET query এবং Create/Update body-র জন্য সার্ভার সাইটে ইনপুট ভ্যালিডেশন যোগ করা হয়েছে (search escape, numeric parse, page/limit cap, allowed sort whitelist, basic create/update checks)。
+- User-provided regex ব্যবহার করার আগে special characters ইস্কেপ করা হয় যাতে ReDoS ঝুঁকি কমে。
+- বড় ডাটাবেসের জন্য index ও full-text search বিবেচনা করুন — current search regex ঐগুলো ছাড়াই slow হতে পারে。
+- Authentication middleware: token cookie অথবা Bearer header থেকে নেয়া হয়; রোল চেক `authorize(...)` middleware দিয়ে করে।
+
+---
 
 ## Common Error Response
 
-Most errors ei format-e ashe:
+Most errors নিম্ন ফরম্যাটে রিটার্ন করবে:
 
 ```json
-{
-  "success": false,
-  "message": "Error message"
-}
+{ "success": false, "message": "Error message" }
 ```
 
 Common status codes:
@@ -444,6 +419,16 @@ Common status codes:
 | `201` | Created |
 | `400` | Bad request / validation issue |
 | `401` | Token missing or invalid |
-| `403` | Role permission nai |
+| `403` | Role permission denied |
 | `404` | Resource not found |
 | `500` | Server error |
+
+---
+
+এখানে করা পরিবর্তনসমূহ (সংক্ষিপ্ত):
+
+- কোডবেইসের অনুকূলে ডকসকে পরিষ্কার ও প্রফেশনাল ফরম্যাটে লিখে রাখা হয়েছে。
+- Product GET query এবং Product create/update সম্পর্কিত ভ্যালিডেশনের কথা যোগ করা হয়েছে (ইনপুট স্যানিটাইজেশন ও টাইপ চেক সম্পর্কে)。
+- Delete Product behaviour (soft-delete) স্পষ্ট করা হয়েছে।
+
+কোনো নির্দিষ্ট এন্ডপয়েন্টের response উদাহরণ বা অতিরিক্ত ফিল্ড ডকুমেন্টেশন লাগলে বলুন — আমি যুক্ত করে দিব।

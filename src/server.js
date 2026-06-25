@@ -13,7 +13,7 @@ app.use(cookieParser());
 
 // CORS configuration supporting dynamic client origins and credential cookies
 const corsOptions = {
-  origin: process.env.CLIENT_URL || "http://localhost:5000",
+  origin: process.env.CLIENT_URL || "http://localhost:3000",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],

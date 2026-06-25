@@ -10,8 +10,9 @@ const {
   getBrands
 } = require('../controllers/productController');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const { validateGetProductsQuery, validateCreateProduct, validateUpdateProduct } = require('../middleware/validationMiddleware');
 
-router.get('/', getProducts);
+router.get('/', validateGetProductsQuery, getProducts);
 router.get('/categories', getCategories);
 router.get('/brands', getBrands);
 router.get('/:id_or_slug', getProduct);
