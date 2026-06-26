@@ -4,6 +4,44 @@ const Brand = require('../models/Brand');
 
 const activeOrLegacy = { $or: [{ active: true }, { active: { $exists: false } }] };
 
+const collectProductImages = (req) => {
+  const uploadedFiles = req.files && req.files.length ? req.files : req.file ? [req.file] : [];
+  const uploadedImages = uploadedFiles.map((file) => file.path || file.secure_url).filter(Boolean);
+
+  if (uploadedImages.length) {
+    return uploadedImages;
+  }
+
+  if (req.body?.images !== undefined) {
+    if (Array.isArray(req.body.images)) {
+      return req.body.images.filter(Boolean);
+    }
+
+    if (typeof req.body.images === 'string') {
+      if (req.body.images.startsWith('[')) {
+        try {
+          const parsedImages = JSON.parse(req.body.images);
+          return Array.isArray(parsedImages) ? parsedImages.filter(Boolean) : [];
+        } catch (err) {
+          return [];
+        }
+      }
+
+      if (req.body.images.includes(',')) {
+        return req.body.images.split(',').map((value) => value.trim()).filter(Boolean);
+      }
+
+      return req.body.images ? [req.body.images] : [];
+    }
+  }
+
+  if (req.body?.image_url) {
+    return [req.body.image_url];
+  }
+
+  return [];
+};
+
 // @desc    Get all products (with search, filter, sort, paginate)
 // @route   GET /api/products
 // @access  Public
@@ -99,10 +137,17 @@ exports.getProduct = async (req, res, next) => {
 
 // @desc    Create product
 // @route   POST /api/products
-// @access  Private (Admin/Employee only)
+// @access  Private (Admin/Manager only)
 exports.createProduct = async (req, res, next) => {
   try {
-    const product = await Product.create(req.body);
+    const productData = { ...req.body };
+    const images = collectProductImages(req);
+
+    if (images.length) {
+      productData.images = images;
+    }
+
+    const product = await Product.create(productData);
     const populatedProduct = await Product.findById(product._id).populate('category').populate('brand');
     return res.status(201).json({ success: true, product: populatedProduct });
   } catch (err) {
@@ -112,12 +157,18 @@ exports.createProduct = async (req, res, next) => {
 
 // @desc    Update product
 // @route   PUT /api/products/:id
-// @access  Private (Admin/Employee only)
+// @access  Private (Admin/Manager only)
 exports.updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const updateData = { ...req.body };
 
-    const product = await Product.findByIdAndUpdate(id, req.body, { new: true, runValidators: true }).populate('category').populate('brand');
+    if (req.files || req.file || req.body.images !== undefined || req.body.image_url) {
+      const images = collectProductImages(req);
+      updateData.images = images;
+    }
+
+    const product = await Product.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).populate('category').populate('brand');
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
@@ -129,7 +180,7 @@ exports.updateProduct = async (req, res, next) => {
 
 // @desc    Delete product
 // @route   DELETE /api/products/:id
-// @access  Private (Admin/Employee only)
+// @access  Private (Admin/Manager only)
 exports.deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
