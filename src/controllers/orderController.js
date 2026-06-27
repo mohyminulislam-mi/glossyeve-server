@@ -141,11 +141,104 @@ exports.getOrder = async (req, res, next) => {
 
 // @desc    Get all orders across system
 // @route   GET /api/orders
-// @access  Private (Admin/Employee only)
+// @access  Private (Admin/Manager only)
 exports.getOrders = async (req, res, next) => {
   try {
-    const orders = await Order.find().populate('user', 'name email').sort('-createdAt');
-    return res.status(200).json({ success: true, count: orders.length, orders });
+    const { status, search, startDate, endDate, page = 1, limit = 10 } = req.query;
+    
+    // Build filter query
+    const filter = {};
+    
+    // Filter by order status
+    if (status) {
+      filter.orderStatus = status;
+    }
+    
+    // Date range filter
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        filter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.createdAt.$lte = new Date(endDate);
+      }
+    }
+    
+    // Pagination
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+    
+    // If search is provided, we need to use aggregation for user population and search
+    let orders, total;
+    
+    if (search) {
+      // Escape regex special characters
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = new RegExp(escapedSearch, 'i');
+      
+      const aggregationPipeline = [
+        { $match: filter },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'user',
+            foreignField: '_id',
+            as: 'user'
+          }
+        },
+        { $unwind: '$user' },
+        {
+          $match: {
+            $or: [
+              { 'user.name': searchRegex },
+              { 'user.email': searchRegex },
+              { trackingId: searchRegex },
+              { invoiceNumber: searchRegex }
+            ]
+          }
+        },
+        { $sort: { createdAt: -1 } },
+        {
+          $facet: {
+            orders: [
+              { $skip: skip },
+              { $limit: limitNum },
+              { $project: { 'user.password': 0 } }
+            ],
+            total: [
+              { $count: 'count' }
+            ]
+          }
+        }
+      ];
+      
+      const result = await Order.aggregate(aggregationPipeline);
+      orders = result[0].orders;
+      total = result[0].total.length > 0 ? result[0].total[0].count : 0;
+    } else {
+      // No search, use find with populate
+      [orders, total] = await Promise.all([
+        Order.find(filter)
+          .populate('user', 'name email')
+          .sort('-createdAt')
+          .skip(skip)
+          .limit(limitNum),
+        Order.countDocuments(filter)
+      ]);
+    }
+    
+    const totalPages = Math.ceil(total / limitNum);
+    
+    return res.status(200).json({
+      success: true,
+      orders,
+      total,
+      page: pageNum,
+      totalPages,
+      limit: limitNum
+    });
   } catch (err) {
     next(err);
   }
@@ -153,7 +246,7 @@ exports.getOrders = async (req, res, next) => {
 
 // @desc    Update order workflow status (pending -> processing -> shipped -> delivered -> cancelled)
 // @route   PUT /api/orders/:id/status
-// @access  Private (Admin/Employee only)
+// @access  Private (Admin/Manager only)
 exports.updateOrderStatus = async (req, res, next) => {
   try {
     const { id } = req.params;

@@ -172,3 +172,43 @@ exports.forgotPassword = async (req, res, next) => {
     message: 'If email exists, a password reset link has been dispatched successfully.'
   });
 };
+
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const { name, phone, address } = req.body;
+    
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (address !== undefined) updateData.address = address;
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id || req.user.id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    // Return password-stripped user
+    const userResponse = {
+      id: user.id || user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone || '',
+      address: user.address || { street: '', city: '', postalCode: '', country: '' },
+      avatar: user.avatar,
+      investmentAmount: user.investmentAmount || 0
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: userResponse
+    });
+  } catch (err) {
+    next(err);
+  }
+};

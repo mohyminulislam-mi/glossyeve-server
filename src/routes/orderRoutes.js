@@ -16,7 +16,7 @@ router.get('/my-orders', getMyOrders);
 router.get('/:id', getOrder);
 
 // Privilege Dispatch and Logistics Updates
-router.get('/', authorize('admin', 'employee'), getOrders);
-router.put('/:id/status', authorize('admin', 'employee'), updateOrderStatus);
+router.get('/', authorize('admin', 'manager'), getOrders);
+router.put('/:id/status', authorize('admin', 'manager'), updateOrderStatus);
 
 module.exports = router;

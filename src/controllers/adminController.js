@@ -6,7 +6,7 @@ const activeOrLegacy = { $or: [{ active: true }, { active: { $exists: false } }]
 
 // @desc    Get dashboard metrics (Total Sales, Orders, Customers, Stock warnings, and Investments)
 // @route   GET /api/admin/stats
-// @access  Private (Admin/Employee only)
+// @access  Private (Admin/Manager only)
 exports.getStats = async (req, res, next) => {
   try {
     let totalRevenue = 0;
@@ -45,7 +45,7 @@ exports.getStats = async (req, res, next) => {
 
 // @desc    Get chart analytics for dashboard visualizations
 // @route   GET /api/admin/charts
-// @access  Private (Admin/Employee only)
+// @access  Private (Admin/Manager only)
 exports.getCharts = async (req, res, next) => {
   try {
     let ordersList = [];
@@ -134,8 +134,79 @@ exports.getCharts = async (req, res, next) => {
 // @access  Private (Admin only)
 exports.getUsers = async (req, res, next) => {
   try {
-    const users = await User.find().sort('-createdAt');
-    return res.status(200).json({ success: true, count: users.length, users });
+    const { search, role, page = 1, limit = 10 } = req.query;
+    
+    // Build filter query
+    const filter = {};
+    
+    // Filter by role
+    if (role) {
+      filter.role = role;
+    }
+    
+    // Search by name or email
+    if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = new RegExp(escapedSearch, 'i');
+      filter.$or = [
+        { name: searchRegex },
+        { email: searchRegex }
+      ];
+    }
+    
+    // Pagination
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+    
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limitNum),
+      User.countDocuments(filter)
+    ]);
+    
+    const totalPages = Math.ceil(total / limitNum);
+    
+    return res.status(200).json({
+      success: true,
+      users,
+      total,
+      page: pageNum,
+      totalPages,
+      limit: limitNum
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get single user detail
+// @route   GET /api/admin/users/:id
+// @access  Private (Admin only)
+exports.getUserDetail = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    const [orderCount, recentOrders] = await Promise.all([
+      Order.countDocuments({ user: id }),
+      Order.find({ user: id })
+        .sort('-createdAt')
+        .limit(5)
+    ]);
+    
+    return res.status(200).json({
+      success: true,
+      user,
+      orderCount,
+      recentOrders
+    });
   } catch (err) {
     next(err);
   }
