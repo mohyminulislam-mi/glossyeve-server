@@ -1,5 +1,5 @@
 {
-  "name": "aone-lube-backend",
+  "name": "glossyeve-server",
   "version": "1.0.0",
   "description": "Premium Lubricants E-Commerce Platform Backend REST API",
   "main": "src/server.js",
