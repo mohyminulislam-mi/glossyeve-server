@@ -14,7 +14,7 @@ app.use(cookieParser());
 // CORS configuration supporting dynamic client origins and credential cookies
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? ['https://aonelube.com', 'https://www.aonelube.com', process.env.CLIENT_URL].filter(Boolean)
-  : ['http://localhost:3000', process.env.CLIENT_URL].filter(Boolean);
+  : ['http://localhost:3000', 'http://localhost:3001'];
 
 const corsOptions = {
   origin: (origin, callback) => {
