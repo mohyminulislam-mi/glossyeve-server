@@ -135,6 +135,39 @@ exports.getProduct = async (req, res, next) => {
   }
 };
 
+// Helper: resolve brand value to ObjectId
+const resolveBrand = async (brandValue) => {
+  if (!brandValue) return null;
+
+  // Already a valid ObjectId string
+  if (/^[0-9a-fA-F]{24}$/.test(String(brandValue).trim())) {
+    return brandValue;
+  }
+
+  // It's a name — find or create
+  const name = String(brandValue).trim();
+  let brand = await Brand.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+  if (!brand) {
+    brand = await Brand.create({ name });
+  }
+  return brand._id;
+};
+
+// Helper: parse specifications safely
+const parseSpecifications = (specs) => {
+  if (!specs) return undefined;
+  if (Array.isArray(specs)) return specs;
+  if (typeof specs === 'string') {
+    try {
+      const parsed = JSON.parse(specs);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch (_) {
+      return undefined;
+    }
+  }
+  return undefined;
+};
+
 // @desc    Create product
 // @route   POST /api/products
 // @access  Private (Admin/Manager only)
@@ -145,6 +178,17 @@ exports.createProduct = async (req, res, next) => {
 
     if (images.length) {
       productData.images = images;
+    }
+
+    // Parse specifications from JSON string
+    const parsedSpecs = parseSpecifications(productData.specifications);
+    if (parsedSpecs !== undefined) {
+      productData.specifications = parsedSpecs;
+    }
+
+    // Resolve brand name → ObjectId
+    if (productData.brand) {
+      productData.brand = await resolveBrand(productData.brand);
     }
 
     const product = await Product.create(productData);
@@ -166,6 +210,17 @@ exports.updateProduct = async (req, res, next) => {
     if (req.files || req.file || req.body.images !== undefined || req.body.image_url) {
       const images = collectProductImages(req);
       updateData.images = images;
+    }
+
+    // Parse specifications from JSON string
+    const parsedSpecs = parseSpecifications(updateData.specifications);
+    if (parsedSpecs !== undefined) {
+      updateData.specifications = parsedSpecs;
+    }
+
+    // Resolve brand name → ObjectId
+    if (updateData.brand) {
+      updateData.brand = await resolveBrand(updateData.brand);
     }
 
     const product = await Product.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).populate('category').populate('brand');
