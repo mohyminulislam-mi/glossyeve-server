@@ -55,6 +55,18 @@ const ProductSchema = new mongoose.Schema(
       type: [String],
       default: []
     },
+    colors: {
+      type: [String],
+      default: []
+    },
+    sizes: {
+      type: [String],
+      default: []
+    },
+    availableDivisions: {
+      type: [String],
+      default: []
+    },
     ratingsAverage: {
       type: Number,
       default: 0

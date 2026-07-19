@@ -168,6 +168,24 @@ const parseSpecifications = (specs) => {
   return undefined;
 };
 
+// Helper: parse array fields from FormData safely
+const parseArrayField = (field) => {
+  if (!field) return undefined;
+  if (Array.isArray(field)) return field;
+  if (typeof field === 'string') {
+    try {
+      const parsed = JSON.parse(field);
+      return Array.isArray(parsed) ? parsed : [field];
+    } catch (_) {
+      if (field.includes(',')) {
+        return field.split(',').map((item) => item.trim()).filter(Boolean);
+      }
+      return [field.trim()];
+    }
+  }
+  return undefined;
+};
+
 // @desc    Create product
 // @route   POST /api/products
 // @access  Private (Admin/Manager only)
@@ -184,6 +202,27 @@ exports.createProduct = async (req, res, next) => {
     const parsedSpecs = parseSpecifications(productData.specifications);
     if (parsedSpecs !== undefined) {
       productData.specifications = parsedSpecs;
+    }
+
+    // Parse array fields
+    const parsedDivisions = parseArrayField(productData.availableDivisions);
+    if (parsedDivisions !== undefined) {
+      productData.availableDivisions = parsedDivisions;
+    }
+
+    const parsedColors = parseArrayField(productData.colors);
+    if (parsedColors !== undefined) {
+      productData.colors = parsedColors;
+    }
+
+    const parsedSizes = parseArrayField(productData.sizes);
+    if (parsedSizes !== undefined) {
+      productData.sizes = parsedSizes;
+    }
+
+    // Map compareAtPrice to discountPrice
+    if (productData.compareAtPrice !== undefined) {
+      productData.discountPrice = productData.compareAtPrice === '' ? null : Number(productData.compareAtPrice);
     }
 
     // Resolve brand name → ObjectId
@@ -216,6 +255,27 @@ exports.updateProduct = async (req, res, next) => {
     const parsedSpecs = parseSpecifications(updateData.specifications);
     if (parsedSpecs !== undefined) {
       updateData.specifications = parsedSpecs;
+    }
+
+    // Parse array fields
+    const parsedDivisions = parseArrayField(updateData.availableDivisions);
+    if (parsedDivisions !== undefined) {
+      updateData.availableDivisions = parsedDivisions;
+    }
+
+    const parsedColors = parseArrayField(updateData.colors);
+    if (parsedColors !== undefined) {
+      updateData.colors = parsedColors;
+    }
+
+    const parsedSizes = parseArrayField(updateData.sizes);
+    if (parsedSizes !== undefined) {
+      updateData.sizes = parsedSizes;
+    }
+
+    // Map compareAtPrice to discountPrice
+    if (updateData.compareAtPrice !== undefined) {
+      updateData.discountPrice = updateData.compareAtPrice === '' ? null : Number(updateData.compareAtPrice);
     }
 
     // Resolve brand name → ObjectId
