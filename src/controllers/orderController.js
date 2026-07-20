@@ -51,8 +51,12 @@ exports.createOrder = async (req, res, next) => {
       });
     }
 
-    // Shipping cost computation ($5 flat, free over $150)
-    const shippingCost = subtotal > 150 ? 0 : 5.0;
+    // Shipping cost computation — Bangladesh districts
+    // Dhaka = ৳60, other divisions = ৳120
+    const DHAKA_SHIPPING = 60;
+    const OTHER_SHIPPING = 120;
+    const shippingCity = (shippingAddress?.city || '').toLowerCase();
+    const shippingCost = shippingCity === 'dhaka' ? DHAKA_SHIPPING : OTHER_SHIPPING;
 
     // Apply Coupon Code
     let discount = 0;
