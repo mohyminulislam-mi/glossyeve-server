@@ -99,3 +99,21 @@ exports.getProductReviews = async (req, res, next) => {
     next(err);
   }
 };
+
+// @desc    Get current user reviews
+// @route   GET /api/reviews/my-reviews
+// @access  Private
+exports.getMyUserReviews = async (req, res, next) => {
+  try {
+    const userId = req.user.id || req.user._id;
+
+    const reviews = await Review.find({ user: userId })
+      .populate('product', 'name images price category')
+      .sort('-createdAt');
+
+    return res.status(200).json({ success: true, count: reviews.length, reviews });
+  } catch (err) {
+    next(err);
+  }
+};
+
