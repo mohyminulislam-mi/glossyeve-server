@@ -134,7 +134,7 @@ exports.getCharts = async (req, res, next) => {
 // @access  Private (Admin only)
 exports.getUsers = async (req, res, next) => {
   try {
-    const { search, role, page = 1, limit = 10 } = req.query;
+    const { search, role, approved, page = 1, limit = 10 } = req.query;
     
     // Build filter query
     const filter = {};
@@ -143,15 +143,36 @@ exports.getUsers = async (req, res, next) => {
     if (role) {
       filter.role = role;
     }
+
+    // Filter by approval status
+    if (approved !== undefined && approved !== null && approved !== '') {
+      if (approved === 'true' || approved === true) {
+        filter.isApproved = true;
+      } else if (approved === 'false' || approved === false) {
+        filter.$or = [
+          { isApproved: false },
+          { isApproved: { $exists: false } }
+        ];
+      }
+    }
     
     // Search by name or email
     if (search) {
       const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const searchRegex = new RegExp(escapedSearch, 'i');
-      filter.$or = [
+      const searchOr = [
         { name: searchRegex },
         { email: searchRegex }
       ];
+      if (filter.$or) {
+        filter.$and = [
+          { $or: filter.$or },
+          { $or: searchOr }
+        ];
+        delete filter.$or;
+      } else {
+        filter.$or = searchOr;
+      }
     }
     
     // Pagination
@@ -230,12 +251,65 @@ exports.updateUserRole = async (req, res, next) => {
     }
 
     user.role = role;
+    if (role === 'manager' || role === 'admin') {
+      user.isApproved = true;
+    }
     if (investmentAmount !== undefined) {
       user.investmentAmount = parseFloat(investmentAmount);
     }
     await user.save();
 
     return res.status(200).json({ success: true, message: 'User updated successfully', user });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Approve manager account
+// @route   PUT /api/admin/users/:id/approve
+// @access  Private (Admin only)
+exports.approveManager = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.isApproved = true;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Manager approved successfully',
+      user
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Unapprove / revoke manager account approval
+// @route   PUT /api/admin/users/:id/unapprove
+// @access  Private (Admin only)
+exports.unapproveManager = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.isApproved = false;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Manager approval revoked successfully',
+      user
+    });
   } catch (err) {
     next(err);
   }

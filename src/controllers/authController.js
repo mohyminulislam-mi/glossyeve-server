@@ -23,6 +23,7 @@ const sendTokenResponse = (user, statusCode, res) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    isApproved: user.isApproved ?? (user.role !== 'manager'),
     phone: user.phone || '',
     address: user.address || { street: '', city: '', postalCode: '', country: '' },
     avatar: user.avatar,
@@ -148,10 +149,13 @@ exports.logout = async (req, res, next) => {
 // @access  Private
 exports.getMe = async (req, res, next) => {
   try {
-    // req.user is already loaded in protect middleware
+    const userObj = req.user.toObject ? req.user.toObject() : { ...req.user };
+    if (userObj.isApproved === undefined) {
+      userObj.isApproved = userObj.role !== 'manager';
+    }
     res.status(200).json({
       success: true,
-      user: req.user
+      user: userObj
     });
   } catch (err) {
     next(err);
@@ -199,6 +203,7 @@ exports.updateProfile = async (req, res, next) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      isApproved: user.isApproved ?? (user.role !== 'manager'),
       phone: user.phone || '',
       address: user.address || { street: '', city: '', postalCode: '', country: '' },
       avatar: user.avatar,
